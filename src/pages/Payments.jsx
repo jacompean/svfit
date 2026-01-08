@@ -1,107 +1,113 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 
 export default function Payments() {
   const [members, setMembers] = useState([]);
-  const [member_id, setMemberId] = useState("");
-  const [amount_mxn, setAmount] = useState("699");
+  const [payments, setPayments] = useState([]);
+  const [memberId, setMemberId] = useState("");
+  const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("cash");
   const [reference, setReference] = useState("");
-  const [items, setItems] = useState([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
 
   async function load() {
-    setError("");
-    try {
-      const r = await api.payments();
-      setItems(r.payments || []);
-    } catch (e) {
-      setError(e.message);
-    }
+    const m = await api.members("");
+    setMembers(m.members || []);
+    const p = await api.payments({});
+    setPayments(p.payments || []);
   }
 
   useEffect(() => {
-    (async () => {
-      try {
-        const m = await api.members();
-        setMembers(m.members || []);
-      } catch {}
-      await load();
-    })();
+    load().catch(() => {});
   }, []);
 
-  async function create() {
-    if (!member_id) return;
-    setLoading(true);
-    setError("");
+  const memberOptions = useMemo(() => members, [members]);
+
+  async function addPayment() {
+    setErr("");
     try {
-      await api.createPayment({ member_id, amount_mxn: Number(amount_mxn), method, reference: reference || null });
-      setMemberId("");
+      if (!memberId) throw new Error("Selecciona un miembro");
+      if (!amount) throw new Error("Captura el monto");
+      await api.createPayment({ member_id: memberId, amount_mxn: Number(amount), method, reference });
+      setAmount("");
       setReference("");
-      await load();
+      const p = await api.payments({});
+      setPayments(p.payments || []);
     } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
+      setErr(e.message);
     }
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4">
+    <div className="max-w-6xl mx-auto">
       <div className="text-2xl font-semibold">Pagos</div>
+      <div className="mt-1 text-sm text-svfit-muted">Registra pagos y consulta historial.</div>
 
-      <div className="card p-4 mt-4">
-        <div className="text-sm font-medium">Registrar pago</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
-          <select className="border border-slate-200 rounded-xl px-3 py-2" value={member_id} onChange={(e) => setMemberId(e.target.value)}>
-            <option value="">Miembro…</option>
-            {members.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-          </select>
-          <input className="border border-slate-200 rounded-xl px-3 py-2" value={amount_mxn} onChange={(e) => setAmount(e.target.value)} placeholder="Monto MXN" />
-          <select className="border border-slate-200 rounded-xl px-3 py-2" value={method} onChange={(e) => setMethod(e.target.value)}>
-            <option value="cash">Efectivo</option>
-            <option value="transfer">Transferencia</option>
-            <option value="card">Tarjeta</option>
-          </select>
-          <input className="border border-slate-200 rounded-xl px-3 py-2" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Referencia (opcional)" />
-        </div>
-        <div className="flex gap-2 mt-3">
-          <button className="btn btnPrimary" onClick={create} disabled={loading || !member_id}>{loading ? "Guardando..." : "Guardar pago"}</button>
-          <button className="btn" onClick={load}>Actualizar</button>
-          <div className="flex-1" />
-        </div>
-        {error ? <div className="text-sm text-red-600 mt-3">{error}</div> : null}
-      </div>
+      <div className="mt-6 grid lg:grid-cols-3 gap-4">
+        <div className="card p-5">
+          <div className="text-lg font-semibold">Nuevo pago</div>
+          <div className="mt-3 space-y-3">
+            <div>
+              <div className="text-xs text-svfit-muted mb-1">Miembro</div>
+              <select className="select" value={memberId} onChange={(e) => setMemberId(e.target.value)}>
+                <option value="">Selecciona…</option>
+                {memberOptions.map((m) => (
+                  <option key={m.id} value={m.id}>{m.full_name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div className="text-xs text-svfit-muted mb-1">Monto (MXN)</div>
+              <input className="input" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Ej. 500" />
+            </div>
+            <div>
+              <div className="text-xs text-svfit-muted mb-1">Método</div>
+              <select className="select" value={method} onChange={(e) => setMethod(e.target.value)}>
+                <option value="cash">cash</option>
+                <option value="transfer">transfer</option>
+                <option value="card">card</option>
+              </select>
+            </div>
+            <div>
+              <div className="text-xs text-svfit-muted mb-1">Referencia (opcional)</div>
+              <input className="input" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Folio / banco" />
+            </div>
 
-      <div className="card p-4 mt-4">
-        <div className="text-sm font-medium">Historial reciente</div>
-        <div className="mt-3 overflow-auto">
-          <table className="min-w-full text-sm">
-            <thead className="text-xs text-slate-600">
-              <tr>
-                <th className="text-left py-2">Fecha</th>
-                <th className="text-left py-2">Miembro</th>
-                <th className="text-left py-2">Monto</th>
-                <th className="text-left py-2">Método</th>
-                <th className="text-left py-2">Referencia</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map(p => (
-                <tr key={p.id} className="border-t border-slate-100">
-                  <td className="py-2">{new Date(p.paid_at).toLocaleString()}</td>
-                  <td className="py-2">{p.member_name}</td>
-                  <td className="py-2">${Number(p.amount_mxn).toFixed(2)}</td>
-                  <td className="py-2"><span className="badge">{p.method}</span></td>
-                  <td className="py-2">{p.reference || "—"}</td>
+            {err ? <div className="text-sm text-red-300">{err}</div> : null}
+
+            <button className="btn btnPrimary w-full" onClick={addPayment}>Registrar</button>
+          </div>
+        </div>
+
+        <div className="card p-5 lg:col-span-2">
+          <div className="text-lg font-semibold">Historial</div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Miembro</th>
+                  <th>Monto</th>
+                  <th>Método</th>
+                  <th>Ref</th>
                 </tr>
-              ))}
-              {items.length === 0 ? (
-                <tr><td className="py-4 text-slate-600" colSpan="5">Sin pagos</td></tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {payments.map((p) => (
+                  <tr key={p.id}>
+                    <td>{new Date(p.paid_at).toLocaleString()}</td>
+                    <td>{p.member_name}</td>
+                    <td>${p.amount_mxn}</td>
+                    <td><span className="badge">{p.method}</span></td>
+                    <td className="text-svfit-muted">{p.reference || "—"}</td>
+                  </tr>
+                ))}
+                {payments.length === 0 ? (
+                  <tr><td colSpan={5} className="py-6 text-svfit-muted">Sin pagos.</td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

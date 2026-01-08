@@ -1,64 +1,61 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { getUser } from "../lib/auth";
 
-function Stat({ label, value }) {
+function StatCard({ label, value, sub }) {
   return (
-    <div className="card p-4">
-      <div className="text-xs text-slate-600">{label}</div>
-      <div className="text-2xl font-semibold mt-1">{value}</div>
+    <div className="card p-5">
+      <div className="kpi">
+        <div className="label">{label}</div>
+        <div className="value">{value}</div>
+        {sub ? <div className="text-xs text-svfit-muted">{sub}</div> : null}
+      </div>
     </div>
   );
 }
 
 export default function Dashboard() {
-  const user = getUser();
   const [summary, setSummary] = useState(null);
-  const [error, setError] = useState("");
+  const [err, setErr] = useState("");
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const r = await api.dashboard();
-        if (alive) setSummary(r.summary);
-      } catch (e) {
-        if (alive) setError(e.message);
-      }
-    })();
-    return () => { alive = false; };
+    api.dashboard()
+      .then((r) => setSummary(r.summary))
+      .catch((e) => setErr(e.message));
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto p-4">
-      <div className="flex items-center gap-3">
-        <div className="text-2xl font-semibold">Dashboard</div>
-        <div className="text-sm text-slate-600">Hola, {user?.name || user?.email}</div>
+    <div className="space-y-4">
+      <div className="card p-6">
+        <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <div className="flex-1">
+            <div className="h1">Dashboard</div>
+            <div className="muted mt-1">
+              Resumen rápido de operación.
+            </div>
+          </div>
+          <div className="hidden md:block text-xs text-svfit-muted">
+            Tip: usa “Asistencia” para check-in rápido.
+          </div>
+        </div>
       </div>
 
-      {user?.role === "member" ? (
-        <div className="card p-4 mt-4">
-          <div className="font-medium">Acceso limitado</div>
-          <p className="text-sm text-slate-600 mt-1">
-            Este portal está pensado para administración (admin/coach). Si quieres, lo extendemos para que el miembro vea su historial.
-          </p>
-        </div>
-      ) : null}
+      {err ? <div className="text-red-300 text-sm">{err}</div> : null}
 
-      {error ? (
-        <div className="card p-4 mt-4 border-red-200">
-          <div className="text-sm text-red-600">{error}</div>
-          <p className="text-xs text-slate-600 mt-2">
-            Tip: verifica que <code className="px-1 bg-slate-100 rounded">VITE_API_BASE_URL</code> apunte a tu backend y que el backend permita tu origin en <code className="px-1 bg-slate-100 rounded">FRONTEND_ORIGINS</code>.
-          </p>
-        </div>
-      ) : null}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Miembros activos" value={summary?.active_members ?? "—"} />
+        <StatCard label="Check-ins hoy" value={summary?.checkins_today ?? "—"} />
+        <StatCard label="Ingresos hoy" value={summary ? `$${summary.revenue_today}` : "—"} />
+        <StatCard label="Clases próximos 7 días" value={summary?.classes_next_7_days ?? "—"} />
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
-        <Stat label="Miembros activos" value={summary?.active_members ?? "—"} />
-        <Stat label="Check-ins hoy" value={summary?.checkins_today ?? "—"} />
-        <Stat label="Ingresos hoy (MXN)" value={summary?.revenue_today ?? "—"} />
-        <Stat label="Clases próximos 7 días" value={summary?.classes_next_7_days ?? "—"} />
+      <div className="card p-6">
+        <div className="h2">Acciones rápidas</div>
+        <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <a className="btn" href="/members">Buscar miembro</a>
+          <a className="btn" href="/attendance">Registrar asistencia</a>
+          <a className="btn" href="/payments">Registrar pago</a>
+          <a className="btn" href="/classes">Administrar clases</a>
+        </div>
       </div>
     </div>
   );

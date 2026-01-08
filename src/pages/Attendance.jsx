@@ -1,89 +1,89 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 
 export default function Attendance() {
   const [members, setMembers] = useState([]);
   const [memberId, setMemberId] = useState("");
-  const [items, setItems] = useState([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function load() {
-    setError("");
-    try {
-      const r = await api.attendance();
-      setItems(r.attendance || []);
-    } catch (e) {
-      setError(e.message);
-    }
-  }
+  const [method, setMethod] = useState("manual");
+  const [log, setLog] = useState([]);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
-    (async () => {
-      try {
-        const m = await api.members();
-        setMembers(m.members || []);
-      } catch {}
-      await load();
-    })();
+    api.members("").then((r) => setMembers(r.members || [])).catch(() => {});
+    api.attendance({ from: new Date().toISOString().slice(0, 10) }).then((r) => setLog(r.attendance || [])).catch(() => {});
   }, []);
 
+  const options = useMemo(() => members, [members]);
+
   async function checkin() {
-    if (!memberId) return;
-    setLoading(true);
-    setError("");
+    setErr("");
     try {
-      await api.checkin(memberId);
-      setMemberId("");
-      await load();
+      if (!memberId) throw new Error("Selecciona un miembro");
+      await api.checkin(memberId, method);
+      const r = await api.attendance({ from: new Date().toISOString().slice(0, 10) });
+      setLog(r.attendance || []);
     } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
+      setErr(e.message);
     }
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4">
+    <div className="max-w-6xl mx-auto">
       <div className="text-2xl font-semibold">Asistencia</div>
-      <div className="card p-4 mt-4">
-        <div className="text-sm font-medium">Registrar check-in</div>
-        <div className="flex flex-col sm:flex-row gap-2 mt-3">
-          <select className="border border-slate-200 rounded-xl px-3 py-2" value={memberId} onChange={(e) => setMemberId(e.target.value)}>
-            <option value="">Selecciona miembro…</option>
-            {members.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-          </select>
-          <button className="btn btnPrimary" onClick={checkin} disabled={loading || !memberId}>{loading ? "Registrando..." : "Check-in"}</button>
-          <div className="flex-1" />
-          <button className="btn" onClick={load}>Actualizar</button>
-        </div>
-        {error ? <div className="text-sm text-red-600 mt-3">{error}</div> : null}
-      </div>
+      <div className="mt-1 text-sm text-svfit-muted">Check-in rápido.</div>
 
-      <div className="card p-4 mt-4">
-        <div className="text-sm font-medium">Últimos check-ins</div>
-        <div className="mt-3 overflow-auto">
-          <table className="min-w-full text-sm">
-            <thead className="text-xs text-slate-600">
-              <tr>
-                <th className="text-left py-2">Fecha</th>
-                <th className="text-left py-2">Miembro</th>
-                <th className="text-left py-2">Método</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map(i => (
-                <tr key={i.id} className="border-t border-slate-100">
-                  <td className="py-2">{new Date(i.checkin_at).toLocaleString()}</td>
-                  <td className="py-2">{i.member_name}</td>
-                  <td className="py-2"><span className="badge">{i.method}</span></td>
+      <div className="mt-6 grid md:grid-cols-3 gap-4">
+        <div className="card p-5 md:col-span-1">
+          <div className="text-lg font-semibold">Registrar</div>
+          <div className="mt-3 space-y-3">
+            <div>
+              <div className="text-xs text-svfit-muted mb-1">Miembro</div>
+              <select className="select" value={memberId} onChange={(e) => setMemberId(e.target.value)}>
+                <option value="">Selecciona…</option>
+                {options.map((m) => (
+                  <option key={m.id} value={m.id}>{m.full_name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div className="text-xs text-svfit-muted mb-1">Método</div>
+              <select className="select" value={method} onChange={(e) => setMethod(e.target.value)}>
+                <option value="manual">manual</option>
+                <option value="qr">qr</option>
+              </select>
+            </div>
+
+            {err ? <div className="text-sm text-red-300">{err}</div> : null}
+
+            <button className="btn btnPrimary w-full" onClick={checkin}>Registrar</button>
+          </div>
+        </div>
+
+        <div className="card p-5 md:col-span-2">
+          <div className="text-lg font-semibold">Hoy</div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Miembro</th>
+                  <th>Método</th>
                 </tr>
-              ))}
-              {items.length === 0 ? (
-                <tr><td className="py-4 text-slate-600" colSpan="3">Sin registros</td></tr>
-              ) : null}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {log.map((a) => (
+                  <tr key={a.id}>
+                    <td>{new Date(a.checkin_at).toLocaleString()}</td>
+                    <td>{a.member_name}</td>
+                    <td><span className="badge">{a.method}</span></td>
+                  </tr>
+                ))}
+                {log.length === 0 ? (
+                  <tr><td colSpan={3} className="py-6 text-svfit-muted">Sin registros.</td></tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

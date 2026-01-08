@@ -1,166 +1,187 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import { getUser } from "../lib/auth";
 
 function Field({ label, children }) {
   return (
     <div>
-      <div className="text-xs text-slate-600">{label}</div>
+      <div className="text-xs text-svfit-muted mb-1">{label}</div>
       {children}
     </div>
   );
 }
 
 export default function Members() {
-  const user = getUser();
-  const canDelete = user?.role === "admin";
-
   const [q, setQ] = useState("");
-  const [items, setItems] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [form, setForm] = useState({ full_name: "", phone: "", email: "", status: "active", join_date: "", notes: "" });
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [edit, setEdit] = useState(null);
 
   async function load() {
-    setError("");
+    setLoading(true);
+    setErr("");
     try {
       const r = await api.members(q);
-      setItems(r.members || []);
+      setList(r.members || []);
     } catch (e) {
-      setError(e.message);
+      setErr(e.message);
+    } finally {
+      setLoading(false);
     }
   }
-
-  useEffect(() => { load(); }, []);
 
   useEffect(() => {
-    if (!selected) {
-      setForm({ full_name: "", phone: "", email: "", status: "active", join_date: "", notes: "" });
-      return;
-    }
-    setForm({
-      full_name: selected.full_name || "",
-      phone: selected.phone || "",
-      email: selected.email || "",
-      status: selected.status || "active",
-      join_date: selected.join_date || "",
-      notes: selected.notes || ""
-    });
-  }, [selected]);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const selectedId = selected?.id;
+  const rows = useMemo(() => list, [list]);
+
+  function openNew() {
+    setEdit({ full_name: "", phone: "", email: "", status: "active", join_date: "", notes: "" });
+    setModalOpen(true);
+  }
+
+  function openEdit(m) {
+    setEdit({ ...m, join_date: m.join_date ? String(m.join_date).slice(0, 10) : "" });
+    setModalOpen(true);
+  }
 
   async function save() {
-    setSaving(true);
-    setError("");
+    setErr("");
     try {
-      const payload = {
-        ...form,
-        phone: form.phone || null,
-        email: form.email || null,
-        join_date: form.join_date || null,
-        notes: form.notes || null
-      };
-      if (selectedId) {
-        const r = await api.updateMember(selectedId, payload);
-        setSelected(r.member);
+      if (edit.id) {
+        await api.updateMember(edit.id, edit);
       } else {
-        const r = await api.createMember(payload);
-        setSelected(r.member);
+        await api.createMember(edit);
       }
+      setModalOpen(false);
       await load();
     } catch (e) {
-      setError(e.message);
-    } finally {
-      setSaving(false);
+      setErr(e.message);
     }
   }
 
-  async function remove() {
-    if (!selectedId) return;
-    if (!confirm("¿Eliminar miembro?")) return;
-    setSaving(true);
-    setError("");
+  async function remove(m) {
+    if (!confirm(`¿Eliminar a ${m.full_name}?`)) return;
     try {
-      await api.deleteMember(selectedId);
-      setSelected(null);
+      await api.deleteMember(m.id);
       await load();
     } catch (e) {
-      setError(e.message);
-    } finally {
-      setSaving(false);
+      alert(e.message);
     }
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4">
-      <div className="flex items-center gap-3">
-        <div className="text-2xl font-semibold">Miembros</div>
-        <div className="flex-1" />
-        <input
-          className="border border-slate-200 rounded-xl px-3 py-2 text-sm w-full max-w-sm"
-          placeholder="Buscar nombre / email / teléfono"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") load(); }}
-        />
-        <button className="btn" onClick={load}>Buscar</button>
-        <button className="btn btnPrimary" onClick={() => setSelected(null)}>Nuevo</button>
-      </div>
-
-      {error ? <div className="text-sm text-red-600 mt-3">{error}</div> : null}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-4">
-        <div className="card p-3 lg:col-span-1">
-          <div className="text-xs text-slate-600 mb-2">{items.length} resultados</div>
-          <div className="space-y-1 max-h-[70vh] overflow-auto">
-            {items.map((m) => (
-              <button
-                key={m.id}
-                className={`w-full text-left px-3 py-2 rounded-xl border ${selectedId === m.id ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:bg-slate-50"}`}
-                onClick={() => setSelected(m)}
-              >
-                <div className="font-medium">{m.full_name}</div>
-                <div className="text-xs text-slate-600">{m.email || "—"} · {m.phone || "—"}</div>
-              </button>
-            ))}
-          </div>
+    <div className="max-w-6xl mx-auto">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex-1 min-w-[260px]">
+          <div className="text-2xl font-semibold">Miembros</div>
+          <div className="mt-1 text-sm text-svfit-muted">Altas, edición y estatus.</div>
         </div>
-
-        <div className="card p-4 lg:col-span-2">
-          <div className="flex items-center gap-2">
-            <div className="font-semibold">{selectedId ? "Editar miembro" : "Nuevo miembro"}</div>
-            <div className="flex-1" />
-            {selectedId && canDelete ? <button className="btn btnDanger" onClick={remove} disabled={saving}>Eliminar</button> : null}
-            <button className="btn btnPrimary" onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-            <Field label="Nombre">
-              <input className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
-            </Field>
-            <Field label="Estatus">
-              <select className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                <option value="active">Activo</option>
-                <option value="inactive">Inactivo</option>
-              </select>
-            </Field>
-            <Field label="Email">
-              <input className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            </Field>
-            <Field label="Teléfono">
-              <input className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            </Field>
-            <Field label="Fecha de alta">
-              <input type="date" className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" value={form.join_date} onChange={(e) => setForm({ ...form, join_date: e.target.value })} />
-            </Field>
-            <Field label="Notas">
-              <textarea className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 min-h-[90px]" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            </Field>
-          </div>
+        <div className="flex gap-2">
+          <input className="input w-[260px]" placeholder="Buscar por nombre, correo o teléfono…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <button className="btn" onClick={load} disabled={loading}>
+            {loading ? "Buscando…" : "Buscar"}
+          </button>
+          <button className="btn btnPrimary" onClick={openNew}>Nuevo</button>
         </div>
       </div>
+
+      {err ? <div className="mt-4 text-red-300 text-sm">{err}</div> : null}
+
+      <div className="mt-6 card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="table">
+            <thead>
+              <tr>
+                <th className="pl-4">Nombre</th>
+                <th>Contacto</th>
+                <th>Estatus</th>
+                <th>Ingreso</th>
+                <th className="pr-4">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((m) => (
+                <tr key={m.id}>
+                  <td className="pl-4">
+                    <div className="font-medium">{m.full_name}</div>
+                    <div className="text-xs text-svfit-muted">{m.email || "—"}</div>
+                  </td>
+                  <td>
+                    <div className="text-sm">{m.phone || "—"}</div>
+                  </td>
+                  <td>
+                    <span className="badge">{m.status}</span>
+                  </td>
+                  <td>
+                    <div className="text-sm">{m.join_date ? String(m.join_date).slice(0, 10) : "—"}</div>
+                  </td>
+                  <td className="pr-4">
+                    <div className="flex gap-2">
+                      <button className="btn" onClick={() => openEdit(m)}>Editar</button>
+                      <button className="btn btnDanger" onClick={() => remove(m)}>Eliminar</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="pl-4 py-6 text-svfit-muted">
+                    Sin resultados.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {modalOpen ? (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <div className="card w-full max-w-xl p-5">
+            <div className="flex items-center gap-2">
+              <div className="text-lg font-semibold">{edit?.id ? "Editar miembro" : "Nuevo miembro"}</div>
+              <div className="flex-1" />
+              <button className="btn" onClick={() => setModalOpen(false)}>Cerrar</button>
+            </div>
+
+            <div className="mt-4 grid sm:grid-cols-2 gap-3">
+              <Field label="Nombre">
+                <input className="input" value={edit.full_name} onChange={(e) => setEdit({ ...edit, full_name: e.target.value })} />
+              </Field>
+              <Field label="Estatus">
+                <select className="select" value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>
+                  <option value="active">active</option>
+                  <option value="inactive">inactive</option>
+                </select>
+              </Field>
+              <Field label="Teléfono">
+                <input className="input" value={edit.phone || ""} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} />
+              </Field>
+              <Field label="Correo">
+                <input className="input" value={edit.email || ""} onChange={(e) => setEdit({ ...edit, email: e.target.value })} />
+              </Field>
+              <Field label="Fecha de ingreso">
+                <input className="input" type="date" value={edit.join_date || ""} onChange={(e) => setEdit({ ...edit, join_date: e.target.value })} />
+              </Field>
+              <Field label="Notas">
+                <textarea className="textarea" rows={3} value={edit.notes || ""} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} />
+              </Field>
+            </div>
+
+            {err ? <div className="mt-3 text-red-300 text-sm">{err}</div> : null}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button className="btn" onClick={() => setModalOpen(false)}>Cancelar</button>
+              <button className="btn btnPrimary" onClick={save}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

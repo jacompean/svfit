@@ -1,25 +1,26 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { setSession } from "../lib/auth";
 
 export default function Login() {
   const nav = useNavigate();
-  const [email, setEmail] = useState("admin@svfit.mx");
-  const [password, setPassword] = useState("Admin123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   async function onSubmit(e) {
     e.preventDefault();
-    setError("");
+    setErr("");
     setLoading(true);
     try {
       const r = await api.login(email, password);
       setSession({ token: r.token, user: r.user });
-      nav("/");
-    } catch (err) {
-      setError(err.message || "Error");
+      if (r.user?.role === "member") nav("/member");
+      else nav("/");
+    } catch (e2) {
+      setErr(e2.message);
     } finally {
       setLoading(false);
     }
@@ -27,29 +28,40 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="card w-full max-w-md p-6">
-        <div className="text-xl font-semibold">Entrar a SVFIT</div>
-        <p className="text-sm text-slate-600 mt-1">Usa el usuario admin/coach (seed) o registra un miembro.</p>
-
-        <form className="mt-5 space-y-3" onSubmit={onSubmit}>
-          <div>
-            <label className="text-xs text-slate-600">Email</label>
-            <input className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div>
-            <label className="text-xs text-slate-600">Contraseña</label>
-            <input type="password" className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <div className="w-full max-w-md">
+        <div className="card p-6">
+          <div className="flex items-center gap-3">
+            <img src="/svfit-logo.jpeg" className="h-12 w-12 rounded-2xl border border-svfit-border" alt="SVFIT" />
+            <div>
+              <div className="text-xl font-semibold">SVFIT</div>
+              <div className="text-sm text-svfit-muted">Acceso al portal</div>
+            </div>
           </div>
 
-          {error ? <div className="text-sm text-red-600">{error}</div> : null}
+          <form className="mt-6 space-y-3" onSubmit={onSubmit}>
+            <div>
+              <label className="block text-xs text-svfit-muted mb-1">Correo</label>
+              <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="correo@svfit.mx" />
+            </div>
+            <div>
+              <label className="block text-xs text-svfit-muted mb-1">Contraseña</label>
+              <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+            </div>
 
-          <button disabled={loading} className={`btn btnPrimary w-full ${loading ? "opacity-70" : ""}`}>
-            {loading ? "Entrando..." : "Entrar"}
-          </button>
-        </form>
+            {err ? <div className="text-sm text-red-300">{err}</div> : null}
 
-        <div className="mt-4 text-sm text-slate-600">
-          ¿No tienes cuenta? <Link className="underline" to="/register">Registrar miembro</Link>
+            <button className={`btn btnPrimary w-full ${loading ? "opacity-70" : ""}`} disabled={loading}>
+              {loading ? "Entrando…" : "Entrar"}
+            </button>
+
+            <div className="text-xs text-svfit-muted">
+              Si necesitas una cuenta, solicítala a recepción.
+            </div>
+          </form>
+        </div>
+
+        <div className="mt-3 text-center text-xs text-svfit-muted">
+          Hecho para operación real de gimnasio • SVFIT
         </div>
       </div>
     </div>
