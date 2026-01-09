@@ -1,62 +1,95 @@
-import React, { useEffect, useState } from "react";
-import { api } from "../lib/api";
-
-function StatCard({ label, value, sub }) {
-  return (
-    <div className="card p-5">
-      <div className="kpi">
-        <div className="label">{label}</div>
-        <div className="value">{value}</div>
-        {sub ? <div className="text-xs text-svfit-muted">{sub}</div> : null}
-      </div>
-    </div>
-  );
-}
+import React, { useEffect, useState } from 'react'
+import StatCard from '../components/StatCard'
+import { apiErrorMessage, getTenant, api } from '../lib/api'
+import { getSession } from '../lib/auth'
 
 export default function Dashboard() {
-  const [summary, setSummary] = useState(null);
-  const [err, setErr] = useState("");
+  const { user } = getSession()
+  const role = user?.role
+
+  const [tenant, setTenant] = useState(null)
+  const [expiring, setExpiring] = useState([])
+  const [memberSummary, setMemberSummary] = useState(null)
+  const [err, setErr] = useState('')
 
   useEffect(() => {
-    api.dashboard()
-      .then((r) => setSummary(r.summary))
-      .catch((e) => setErr(e.message));
-  }, []);
+    ;(async () => {
+      try {
+        const t = await getTenant()
+        setTenant(t)
+        if (role === 'member') {
+          const r = await api.get('/api/member/summary')
+          setMemberSummary(r.data)
+        } else if (role && role !== 'admin') {
+          const r = await api.get('/api/memberships/expiring?days=7')
+          setExpiring(r.data.expiring || [])
+        }
+      } catch (e) {
+        setErr(apiErrorMessage(e))
+      }
+    })()
+  }, [role])
+
+  if (!role) return null
 
   return (
-    <div className="space-y-4">
-      <div className="card p-6">
-        <div className="flex flex-col md:flex-row md:items-center gap-3">
-          <div className="flex-1">
-            <div className="h1">Dashboard</div>
-            <div className="muted mt-1">
-              Resumen rápido de operación.
+    <div>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight">Dashboard</h1>
+          <div className="text-sv-muted text-sm">{tenant?.name || ''}</div>
+        </div>
+        <span className="sv-badge">{role === 'admin' ? 'Admin global' : role}</span>
+      </div>
+
+      {err ? <div className="mt-4 text-sm text-red-300">{err}</div> : null}
+
+      {role === 'member' ? (
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StatCard label="Tu ID" value={memberSummary?.member?.id_code || user?.id_code || '—'} />
+          <StatCard label="Membresía" value={memberSummary?.membership?.plan_name || 'Sin membresía'} hint={memberSummary?.membership ? `Vence: ${memberSummary.membership.end_date}` : ''} />
+          <StatCard label="Asistencias (30 días)" value={memberSummary?.attendance_last_30_days ?? '—'} />
+        </div>
+      ) : role === 'admin' ? (
+        <div className="mt-6 sv-card p-4">
+          <div className="font-semibold">Panel de Admin Global</div>
+          <div className="text-sm text-sv-muted mt-1">Administra gimnasios (tenants), dominios permitidos y branding.</div>
+        </div>
+      ) : (
+        <div className="mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <StatCard label="Por vencer (7 días)" value={expiring.length} hint="Revisa la lista para renovar" />
+            <StatCard label="Inventario" value="Disponible" hint="Admin/Staff/Coach" />
+            <StatCard label="Ventas" value="Disponible" hint="Con caja abierta para efectivo" />
+          </div>
+
+          <div className="mt-6 sv-card p-4">
+            <div className="font-semibold">Próximos vencimientos</div>
+            <div className="text-sm text-sv-muted">Los más próximos a vencer</div>
+            <div className="mt-3 overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="text-sv-muted">
+                  <tr>
+                    <th className="text-left py-2">Miembro</th>
+                    <th className="text-left py-2">Vence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(expiring || []).slice(0, 8).map((x) => (
+                    <tr key={x.membership_id} className="border-t border-sv-border">
+                      <td className="py-2">{x.full_name}</td>
+                      <td className="py-2">{x.end_date}</td>
+                    </tr>
+                  ))}
+                  {(!expiring || expiring.length === 0) ? (
+                    <tr><td className="py-3 text-sv-muted" colSpan={2}>Sin vencimientos cercanos.</td></tr>
+                  ) : null}
+                </tbody>
+              </table>
             </div>
           </div>
-          <div className="hidden md:block text-xs text-svfit-muted">
-            Tip: usa “Asistencia” para check-in rápido.
-          </div>
         </div>
-      </div>
-
-      {err ? <div className="text-red-300 text-sm">{err}</div> : null}
-
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Miembros activos" value={summary?.active_members ?? "—"} />
-        <StatCard label="Check-ins hoy" value={summary?.checkins_today ?? "—"} />
-        <StatCard label="Ingresos hoy" value={summary ? `$${summary.revenue_today}` : "—"} />
-        <StatCard label="Clases próximos 7 días" value={summary?.classes_next_7_days ?? "—"} />
-      </div>
-
-      <div className="card p-6">
-        <div className="h2">Acciones rápidas</div>
-        <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <a className="btn" href="/members">Buscar miembro</a>
-          <a className="btn" href="/attendance">Registrar asistencia</a>
-          <a className="btn" href="/payments">Registrar pago</a>
-          <a className="btn" href="/classes">Administrar clases</a>
-        </div>
-      </div>
+      )}
     </div>
-  );
+  )
 }

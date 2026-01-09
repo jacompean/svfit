@@ -1,16 +1,15 @@
-# SVFIT Frontend (Vite + React + Tailwind)
+# SVFIT Frontend (V2)
 
-Portal para operación del gimnasio SVFIT.
+- React + Vite + Tailwind
+- Login por ID (ej. SV0001) y password
+- Admin global: panel para crear gimnasios (tenants) y configurar dominios
+- Menú por rol
 
-## Variables de entorno
+## Variables de entorno (Vercel)
 
-En Vercel (Frontend) agrega:
+- `VITE_API_BASE_URL` = `https://svfit-backend.vercel.app`
 
-- `VITE_API_BASE_URL=https://svfit-backend.vercel.app`
+## Nota importante
 
-## Nota sobre roles
-
-Esta versión está alineada con el backend actual (admin/coach/member). 
-El registro público se deshabilita en UI para que el alta la haga recepción.
-
-Para habilitar perfiles extra (staff), inventario/ventas y corte de caja, se requiere actualizar el backend a una versión posterior.
+El backend V2 resuelve tenant por `Origin` y solo permite dominios registrados para cada gimnasio.
+Si abres el frontend desde un dominio nuevo, el login mostrará “Dominio no autorizado” hasta que el admin global lo agregue.

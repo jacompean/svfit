@@ -1,24 +1,28 @@
-const TOKEN_KEY = "svfit_token";
-const USER_KEY = "svfit_user";
+import { api } from './api'
 
-export function getToken() {
-  return localStorage.getItem(TOKEN_KEY) || "";
+export function getSession() {
+  const token = localStorage.getItem('svfit_token')
+  const user = localStorage.getItem('svfit_user')
+  return { token, user: user ? JSON.parse(user) : null }
 }
 
-export function setSession({ token, user }) {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user || null));
+export function setSession(token, user) {
+  localStorage.setItem('svfit_token', token)
+  localStorage.setItem('svfit_user', JSON.stringify(user))
 }
 
 export function clearSession() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem('svfit_token')
+  localStorage.removeItem('svfit_user')
 }
 
-export function getUser() {
-  try {
-    return JSON.parse(localStorage.getItem(USER_KEY) || "null");
-  } catch {
-    return null;
-  }
+export async function login(identifier, password) {
+  const r = await api.post('/api/auth/login', { identifier, password })
+  if (r.data?.token) setSession(r.data.token, r.data.user)
+  return r.data
+}
+
+export async function me() {
+  const r = await api.get('/api/me')
+  return r.data.user
 }

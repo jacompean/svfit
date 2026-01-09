@@ -1,69 +1,92 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { api } from "../lib/api";
-import { setSession } from "../lib/auth";
+import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { apiErrorMessage, getTenant } from '../lib/api'
+import { getSession, login } from '../lib/auth'
 
-export default function Login() {
-  const nav = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(false);
+export default function LoginPage() {
+  const nav = useNavigate()
+  const { token } = getSession()
 
-  async function onSubmit(e) {
-    e.preventDefault();
-    setErr("");
-    setLoading(true);
+  const [tenant, setTenant] = useState(null)
+  const [tenantError, setTenantError] = useState('')
+
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    if (token) nav('/dashboard')
+  }, [token, nav])
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const t = await getTenant()
+        setTenant(t)
+        setTenantError('')
+        if (t?.accent_color) document.documentElement.style.setProperty('--sv-accent', t.accent_color)
+      } catch (e) {
+        setTenant(null)
+        setTenantError(apiErrorMessage(e))
+      }
+    })()
+  }, [])
+
+  const onSubmit = async (e) => {
+    e.preventDefault()
+    setErr('')
+    setLoading(true)
     try {
-      const r = await api.login(email, password);
-      setSession({ token: r.token, user: r.user });
-      if (r.user?.role === "member") nav("/member");
-      else nav("/");
+      const r = await login(identifier.trim(), password)
+      if (r.ok) nav('/dashboard')
+      else setErr('Login falló')
     } catch (e2) {
-      setErr(e2.message);
+      setErr(apiErrorMessage(e2))
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="card p-6">
-          <div className="flex items-center gap-3">
-            <img src="/svfit-logo.jpeg" className="h-12 w-12 rounded-2xl border border-svfit-border" alt="SVFIT" />
-            <div>
-              <div className="text-xl font-semibold">SVFIT</div>
-              <div className="text-sm text-svfit-muted">Acceso al portal</div>
-            </div>
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="w-full max-w-md sv-card p-6">
+        <div className="flex items-center gap-3">
+          <img src="/logo-svfit.jpeg" className="w-12 h-12 rounded-2xl border border-sv-border object-cover" />
+          <div>
+            <div className="text-2xl font-black">{tenant?.name || 'SVFIT'}</div>
+            <div className="text-sm text-sv-muted">Acceso al portal</div>
           </div>
-
-          <form className="mt-6 space-y-3" onSubmit={onSubmit}>
-            <div>
-              <label className="block text-xs text-svfit-muted mb-1">Correo</label>
-              <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="correo@svfit.mx" />
-            </div>
-            <div>
-              <label className="block text-xs text-svfit-muted mb-1">Contraseña</label>
-              <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-            </div>
-
-            {err ? <div className="text-sm text-red-300">{err}</div> : null}
-
-            <button className={`btn btnPrimary w-full ${loading ? "opacity-70" : ""}`} disabled={loading}>
-              {loading ? "Entrando…" : "Entrar"}
-            </button>
-
-            <div className="text-xs text-svfit-muted">
-              Si necesitas una cuenta, solicítala a recepción.
-            </div>
-          </form>
         </div>
 
-        <div className="mt-3 text-center text-xs text-svfit-muted">
-          Hecho para operación real de gimnasio • SVFIT
+        {tenantError ? (
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm">
+            <div className="font-semibold">Dominio no autorizado</div>
+            <div className="text-sv-muted text-xs mt-1">{tenantError}</div>
+            <div className="text-sv-muted text-xs mt-2">Pídele al admin global que agregue este dominio al gimnasio en el panel.</div>
+          </div>
+        ) : null}
+
+        <form className="mt-6 space-y-3" onSubmit={onSubmit}>
+          <div>
+            <label className="text-sm text-sv-muted">ID</label>
+            <input className="sv-input mt-1" value={identifier} onChange={(e)=>setIdentifier(e.target.value)} placeholder="SV0001" autoComplete="username" />
+            <div className="text-xs text-sv-muted mt-1">Admin global: usa <span className="text-sv-neon font-semibold">admin</span>.</div>
+          </div>
+          <div>
+            <label className="text-sm text-sv-muted">Contraseña</label>
+            <input className="sv-input mt-1" type="password" value={password} onChange={(e)=>setPassword(e.target.value)} autoComplete="current-password" />
+          </div>
+          {err ? <div className="text-sm text-red-300">{err}</div> : null}
+          <button className="sv-btn-primary w-full" disabled={loading || tenantError}>
+            {loading ? 'Entrando…' : 'Entrar'}
+          </button>
+        </form>
+
+        <div className="mt-4 text-xs text-sv-muted">
+          Nota: los miembros se preregistran y se activan en recepción después de pagar.
         </div>
       </div>
     </div>
-  );
+  )
 }

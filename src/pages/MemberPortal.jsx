@@ -1,73 +1,44 @@
-import React, { useEffect, useState } from "react";
-import { api } from "../lib/api";
+import React, { useEffect, useState } from 'react'
+import { api, apiErrorMessage } from '../lib/api'
 
 export default function MemberPortal() {
-  const [me, setMe] = useState(null);
-  const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState('')
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const r = await api.me();
-        if (alive) setMe(r.user);
-      } catch (e) {
-        if (alive) setErr(e.message);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
+    api.get('/api/member/summary')
+      .then(r=>setData(r.data))
+      .catch(e=>setErr(apiErrorMessage(e)))
+  }, [])
 
   return (
-    <div className="space-y-4">
-      <div className="card p-6">
-        <div className="flex items-center gap-3">
-          <img src="/svfit-logo.jpeg" className="h-12 w-12 rounded-2xl border border-svfit-border" alt="SVFIT" />
-          <div>
-            <div className="h1">Mi panel</div>
-            <div className="muted">Acceso para miembros</div>
+    <div>
+      <h1 className="text-3xl font-black">Mi Panel</h1>
+      <p className="text-sv-muted mt-1">Resumen de tu membresía y asistencias.</p>
+      {err ? <div className="mt-4 text-sm text-red-300">{err}</div> : null}
+
+      {data ? (
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="sv-card p-4">
+            <div className="text-sv-muted text-sm">ID</div>
+            <div className="text-2xl font-black mt-1">{data.member?.id_code}</div>
+          </div>
+          <div className="sv-card p-4">
+            <div className="text-sv-muted text-sm">Membresía</div>
+            <div className="text-xl font-black mt-1">{data.membership?.plan_name || 'Sin membresía'}</div>
+            {data.membership ? <div className="text-xs text-sv-muted mt-1">Vence: {data.membership.end_date}</div> : null}
+          </div>
+          <div className="sv-card p-4">
+            <div className="text-sv-muted text-sm">Asistencias (30 días)</div>
+            <div className="text-2xl font-black mt-1">{data.attendance_last_30_days}</div>
           </div>
         </div>
-      </div>
+      ) : null}
 
-      <div className="card p-6">
-        <div className="h2">Tu cuenta</div>
-        {loading ? <div className="muted mt-2">Cargando…</div> : null}
-        {err ? <div className="text-red-300 mt-2">{err}</div> : null}
-        {me ? (
-          <div className="mt-3 grid md:grid-cols-2 gap-4">
-            <div>
-              <div className="text-xs text-svfit-muted">Nombre</div>
-              <div className="font-semibold">{me.full_name || "—"}</div>
-            </div>
-            <div>
-              <div className="text-xs text-svfit-muted">Correo</div>
-              <div className="font-semibold">{me.email}</div>
-            </div>
-            <div>
-              <div className="text-xs text-svfit-muted">Rol</div>
-              <div className="font-semibold">{me.role}</div>
-            </div>
-            <div>
-              <div className="text-xs text-svfit-muted">Creado</div>
-              <div className="font-semibold">{me.created_at ? new Date(me.created_at).toLocaleString() : "—"}</div>
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="card p-6">
-        <div className="h2">Membresía, pagos y asistencia</div>
-        <div className="muted mt-2">
-          Esta versión del backend aún no expone endpoints de autoservicio para miembros (membresía/pagos/asistencia).
-          Tu recepción/administración puede consultarlo desde el panel de operación.
-        </div>
+      <div className="mt-6 sv-card p-4">
+        <div className="font-semibold">Próximamente</div>
+        <div className="text-sm text-sv-muted mt-1">Rutina asignada y progreso (peso/medidas) se activan en la siguiente iteración.</div>
       </div>
     </div>
-  );
+  )
 }

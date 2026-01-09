@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root{
+  --sv-accent:#39FF14;
+  --sv-bg:#070A0D;
+  --sv-panel:#0C1116;
+  --sv-text:#E8F0F8;
+  --sv-muted:#9DB1C5;
+  --sv-border:rgba(255,255,255,.08);
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background: radial-gradient(900px 500px at 25% 10%, rgba(57,255,20,.14), transparent 60%),
+              radial-gradient(900px 500px at 80% 0%, rgba(57,255,20,.08), transparent 55%),
+              var(--sv-bg);
+  color: var(--sv-text);
+}
+
+*{ scrollbar-color: rgba(57,255,20,.35) rgba(255,255,255,.06); }
+
+.sv-card{ @apply bg-sv-panel border border-sv-border rounded-2xl shadow; }
+.sv-input{ @apply w-full bg-transparent border border-sv-border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-sv-neon; }
+.sv-btn{ @apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-semibold; }
+.sv-btn-primary{ @apply sv-btn bg-sv-neon text-black hover:opacity-90; box-shadow: 0 0 18px rgba(57,255,20,.35); }
+.sv-btn-ghost{ @apply sv-btn border border-sv-border hover:bg-white/5; }
+.sv-badge{ @apply inline-flex items-center rounded-full border border-sv-border px-2 py-1 text-xs text-sv-muted; }

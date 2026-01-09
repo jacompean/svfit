@@ -1,23 +1,22 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{js,jsx}"],
+  content: ["./index.html", "./src/**/*.{js,jsx}"] ,
   theme: {
     extend: {
       colors: {
-        svfit: {
-          bg: "#0B0B0F",
-          panel: "#11131A",
-          panel2: "#0F1117",
-          border: "#1F2430",
-          text: "#E6E6E6",
-          muted: "#9AA4B2",
-          neon: "#39FF14"
+        sv: {
+          neon: "var(--sv-accent)",
+          bg: "var(--sv-bg)",
+          panel: "var(--sv-panel)",
+          text: "var(--sv-text)",
+          muted: "var(--sv-muted)",
+          border: "var(--sv-border)"
         }
       },
       boxShadow: {
-        neon: "0 0 0 1px rgba(57,255,20,0.25), 0 10px 30px rgba(0,0,0,0.45)",
+        neon: "0 0 18px var(--sv-accent)"
       }
     },
   },
   plugins: [],
-};
+}
