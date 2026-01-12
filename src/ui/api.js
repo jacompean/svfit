@@ -25,7 +25,16 @@ async function request(path, { method="GET", body, auth=true } = {}){
 export const api = {
   tenant: () => request("/api/tenant", { auth:false }),
   login: (identifier, password) => request("/api/auth/login", { method:"POST", body:{ identifier, password }, auth:false }),
-  me: () => request("/api/me"),
+  me: async () => {
+    try { return await request("/api/me"); }
+    catch (e) {
+      // Some deployments expose /api/auth/me instead
+      if ((e.message || "").toLowerCase().includes("not found") || (e.message || "").includes("404")) {
+        return await request("/api/auth/me");
+      }
+      throw e;
+    }
+  },
   plans: () => request("/api/plans"),
   members: (q="") => request(`/api/members${q?`?q=${encodeURIComponent(q)}`:""}`),
   preregister: (payload) => request("/api/members/preregister", { method:"POST", body: payload }),
@@ -37,4 +46,8 @@ export const api = {
   cashClose: (closing_cash) => request("/api/cash/close", { method:"POST", body:{ closing_cash } }),
   createSale: (payload) => request("/api/sales", { method:"POST", body: payload }),
   salesToday: () => request("/api/sales/today"),
+  forgot: (identifier) => request("/api/auth/forgot", { method:"POST", body:{ identifier }, auth:false }),
+  changePassword: (oldPassword, newPassword) => request("/api/auth/change-password", { method:"POST", body:{ oldPassword, newPassword } }),
+  resetRequests: () => request("/api/admin/reset-requests"),
+  resetPassword: (id_code, newPassword="") => request("/api/admin/reset-password", { method:"POST", body:{ id_code, newPassword } }),
 };

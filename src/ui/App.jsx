@@ -48,6 +48,7 @@ function Layout({ tenant, user }){
         {canOps && <NavLink to="/app/inventory">Inventario</NavLink>}
         {canOps && <NavLink to="/app/pos">Ventas</NavLink>}
         {canOps && <NavLink to="/app/cash">Caja</NavLink>}
+        {canOps && <NavLink to="/app/security">Contraseñas</NavLink>}
       </div>
       <Routes>
         <Route path="/" element={<Dashboard />} />
@@ -55,6 +56,7 @@ function Layout({ tenant, user }){
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/pos" element={<POS />} />
         <Route path="/cash" element={<Cash />} />
+        <Route path="/security" element={<Security />} />
       </Routes>
     </div>
   )
@@ -65,6 +67,11 @@ function Login(){
   const [identifier, setIdentifier] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [error, setError] = React.useState('')
+  const [showForgot, setShowForgot] = React.useState(false)
+  const [forgotId, setForgotId] = React.useState('')
+  const [forgotMsg, setForgotMsg] = React.useState('')
+  const [forgotErr, setForgotErr] = React.useState('')
+
   const tenant = useAsync(() => api.tenant(), [])
 
   return (
@@ -95,6 +102,41 @@ function Login(){
             setError(e.message || 'Error')
           }
         }}>Entrar</button>
+
+        <button className="btn secondary" style={{ marginTop: 10 }} onClick={() => { 
+          setForgotErr(''); setForgotMsg(''); setForgotId(identifier.trim()); setShowForgot(true); 
+        }}>
+          ¿Olvidaste tu contraseña?
+        </button>
+
+        {showForgot && (
+          <div className="card" style={{ marginTop: 14, borderColor: 'var(--accent)' }}>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>Recuperar contraseña</div>
+            <div style={{ opacity: .75, fontSize: 13, marginBottom: 10 }}>
+              Se creará una solicitud para que el staff la atienda. Por seguridad, el sistema no muestra contraseñas antiguas.
+            </div>
+
+            {forgotErr && <div className="badge" style={{ marginBottom: 10, borderColor:'#ef4444' }}>{forgotErr}</div>}
+            {forgotMsg && <div className="badge" style={{ marginBottom: 10 }}>{forgotMsg}</div>}
+
+            <div className="label">ID</div>
+            <input className="input" value={forgotId} onChange={e=>setForgotId(e.target.value)} placeholder="SV0001" />
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <button className="btn" onClick={async () => {
+                setForgotErr(''); setForgotMsg('');
+                try {
+                  const r = await api.forgot(forgotId.trim());
+                  setForgotMsg(r.message || "Solicitud creada. Acude a recepción para restablecer tu contraseña.");
+                } catch (e) {
+                  setForgotErr(e.message || "Error");
+                }
+              }}>Enviar solicitud</button>
+
+              <button className="btn secondary" onClick={() => setShowForgot(false)}>Cerrar</button>
+            </div>
+          </div>
+        )
       </div>
     </div>
   )
@@ -408,6 +450,71 @@ function POS(){
             ))}
           </div>
         }
+      </div>
+    </div>
+  )
+}
+
+function Security(){
+  const [idCode, setIdCode] = React.useState('')
+  const [newPass, setNewPass] = React.useState('')
+  const [msg, setMsg] = React.useState('')
+  const [err, setErr] = React.useState('')
+  const [refresh, setRefresh] = React.useState(0)
+  const requests = useAsync(() => api.resetRequests(), [refresh])
+
+  return (
+    <div className="row">
+      <div className="card" style={{ flex:1, minWidth:320 }}>
+        <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Reset de contraseña</div>
+        <div style={{ opacity:.75, fontSize:13, marginBottom: 10 }}>
+          Para staff/coach/admin. Ingresa el ID y genera una contraseña temporal (o define una nueva).
+        </div>
+        {err && <div className="badge" style={{ borderColor:'#ef4444', marginBottom:10 }}>{err}</div>}
+        {msg && <div className="badge" style={{ marginBottom:10 }}>{msg}</div>}
+
+        <div className="label">ID (ej. SV0007)</div>
+        <input className="input" value={idCode} onChange={e=>setIdCode(e.target.value)} placeholder="SV0007" />
+
+        <div className="label" style={{ marginTop:10 }}>Nueva contraseña (opcional)</div>
+        <input className="input" value={newPass} onChange={e=>setNewPass(e.target.value)} placeholder="dejar en blanco para generar temporal" />
+
+        <button className="btn" style={{ marginTop:12 }} onClick={async ()=>{
+          setErr(''); setMsg('');
+          try {
+            const r = await api.resetPassword(idCode.trim(), newPass.trim());
+            setMsg(`Contraseña lista para ${r.id_code}. Temporal: ${r.tempPassword}`)
+            setNewPass('');
+            setRefresh(x=>x+1);
+          } catch (e) {
+            setErr(e.message || 'Error');
+          }
+        }}>Resetear</button>
+      </div>
+
+      <div className="card" style={{ flex:2, minWidth:320 }}>
+        <div className="header">
+          <div style={{ fontWeight: 900, fontSize: 18 }}>Solicitudes de recuperación</div>
+          <button className="btn secondary" onClick={() => setRefresh(x=>x+1)}>Refrescar</button>
+        </div>
+
+        {requests.loading ? <div style={{ marginTop:10 }}>cargando…</div> : requests.error ? (
+          <div className="badge" style={{ borderColor:'#ef4444', marginTop:10 }}>{requests.error}</div>
+        ) : (
+          <table className="table" style={{ marginTop:10 }}>
+            <thead><tr><th>#</th><th>ID</th><th>Estatus</th><th>Fecha</th></tr></thead>
+            <tbody>
+              {(requests.data.requests || []).map(r => (
+                <tr key={r.id}>
+                  <td>{r.id}</td>
+                  <td>{r.id_code}</td>
+                  <td>{r.status}</td>
+                  <td>{String(r.requested_at || '').slice(0,19).replace('T',' ')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
