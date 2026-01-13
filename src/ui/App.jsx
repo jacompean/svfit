@@ -136,7 +136,7 @@ function Login(){
               <button className="btn secondary" onClick={() => setShowForgot(false)}>Cerrar</button>
             </div>
           </div>
-        )
+        )}
       </div>
     </div>
   )
